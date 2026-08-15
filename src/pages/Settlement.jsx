@@ -59,8 +59,7 @@ export default function Settlement() {
           const methods = session.payerId ? memberMethods(session.payerId) : []
 
           return (
-            <div key={session.id}
-              className={`rounded-2xl shadow-card p-4 border ${upcoming ? 'bg-amber-50 border-amber-200' : 'bg-white border-transparent'}`}>
+            <div key={session.id} className="rounded-2xl shadow-card p-4 bg-white">
               <div className="flex items-start justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   {upcoming && (
