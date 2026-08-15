@@ -1,217 +1,151 @@
 import React, { useMemo, useState } from 'react'
-import { ChevronDown, CheckCircle2, Circle, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Trash2, ChevronDown } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
-import { computeBalances, simplifyDebts } from '../utils/settleDebts.js'
+import { fmtDateWithWeekday, fmt } from '../utils/dateUtils.js'
+import { sessionTypeLabel, sessionEmoji } from '../utils/session.js'
+import SessionFormModal from '../components/SessionFormModal.jsx'
 import QrImage from '../components/QrImage.jsx'
 
-const FILTERS = [
-  { id: 'all', label: '全部' },
-  { id: 'unpaid', label: '未付款' },
-  { id: 'paid', label: '已付款' },
-]
-
 export default function Settlement() {
-  const {
-    sessions, members, settlementRounds, closeSettlementRound, paidMarks, setPaidMark,
-    manualEntries, addManualEntry, updateManualEntry, deleteManualEntry,
-  } = useData()
-  const [expanded, setExpanded] = useState(null)
-  const [filter, setFilter] = useState('all')
-  const [addingManual, setAddingManual] = useState(false)
-  const [manualForm, setManualForm] = useState({ from: '', to: '', amount: '', note: '' })
-
-  const lastRound = settlementRounds.length ? settlementRounds[settlementRounds.length - 1] : null
-  const roundKey = lastRound ? lastRound.id : 'r0'
-  const lastRoundMillis = lastRound?.closedAt?.toMillis ? lastRound.closedAt.toMillis() : 0
-
-  const pendingSessions = useMemo(() => sessions.filter(s => {
-    const t = s.createdAt?.toMillis ? s.createdAt.toMillis() : Infinity
-    return t >= lastRoundMillis
-  }), [sessions, lastRoundMillis])
-
-  const { net, detail } = useMemo(() => computeBalances(pendingSessions, members), [pendingSessions, members])
-  const transactions = useMemo(() => simplifyDebts(net), [net])
-
-  const isPaid = (t) => !!paidMarks.find(p => p.id === `${roundKey}_${t.from}_${t.to}`)?.paid
-  const togglePaid = (t) => setPaidMark(`${roundKey}_${t.from}_${t.to}`, !isPaid(t))
-
-  const filtered = transactions.filter(t => filter === 'all' ? true : filter === 'paid' ? isPaid(t) : !isPaid(t))
-  const filteredManual = manualEntries.filter(m => filter === 'all' ? true : filter === 'paid' ? m.paid : !m.paid)
+  const { sessions, members, activityTypes, deleteSession, updateSession } = useData()
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [editingSession, setEditingSession] = useState(null)
+  const [showMethodsFor, setShowMethodsFor] = useState(null)
 
   const memberName = (id) => members.find(m => m.id === id)?.name || '—'
   const memberMethods = (id) => members.find(m => m.id === id)?.paymentMethods || []
+  const today = fmt(new Date())
 
-  const totalOutstanding = transactions.filter(t => !isPaid(t)).reduce((s, t) => s + t.amount, 0)
-    + manualEntries.filter(m => !m.paid).reduce((s, m) => s + m.amount, 0)
+  const filtered = useMemo(() => {
+    const list = typeFilter === 'all' ? sessions : sessions.filter(s => sessionTypeLabel(s).includes(typeFilter))
+    return [...list].sort((a, b) => (a.date < b.date ? 1 : -1))
+  }, [sessions, typeFilter])
 
-  const hasItems = transactions.length > 0 || manualEntries.length > 0
-  const allPaid = transactions.every(isPaid) && manualEntries.every(m => m.paid)
-
-  const submitManual = async (e) => {
-    e.preventDefault()
-    if (!manualForm.from || !manualForm.to || !manualForm.amount) return
-    await addManualEntry({
-      from: manualForm.from, to: manualForm.to,
-      amount: parseFloat(manualForm.amount), note: manualForm.note.trim(),
-    })
-    setManualForm({ from: '', to: '', amount: '', note: '' })
-    setAddingManual(false)
+  const togglePersonPaid = (session, memberId) => {
+    const paidMemberIds = session.paidMemberIds || []
+    const next = paidMemberIds.includes(memberId)
+      ? paidMemberIds.filter(id => id !== memberId)
+      : [...paidMemberIds, memberId]
+    updateSession(session.id, { paidMemberIds: next })
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-ink">分帳</h1>
-        {hasItems && (
-          <div className="text-right">
-            <button
-              disabled={!allPaid}
-              onClick={() => window.confirm('確定所有款項都已完成轉帳了嗎？結清後這期間的場次將不再計入分帳。') && closeSettlementRound()}
-              className={`text-sm font-medium px-3 py-1.5 rounded-full flex items-center gap-1 ${
-                allPaid ? 'text-green-dark bg-green-light' : 'text-ink/30 bg-black/5 cursor-not-allowed'
-              }`}>
-              <CheckCircle2 size={16} /> 全部結清
-            </button>
-            {!allPaid && <div className="text-xs text-ink/30 mt-1">所有項目都標記已付款後才能結清</div>}
-          </div>
-        )}
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div>
+          <div className="text-sm text-accent font-medium">歷史紀錄</div>
+          <h1 className="font-display text-3xl font-bold text-ink">所有場次</h1>
+        </div>
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-medium shadow-card">
+          <option value="all">全部項目</option>
+          {activityTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+        </select>
       </div>
 
-      {!hasItems ? (
-        <div className="text-center py-10 text-base text-ink/40 bg-white rounded-2xl shadow-card">
-          目前沒有需要分帳的款項 🎉
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex bg-white rounded-full p-1 shadow-card w-fit">
-              {FILTERS.map(f => (
-                <button key={f.id} onClick={() => setFilter(f.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === f.id ? 'bg-orange text-white' : 'text-ink/50'}`}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <div className="text-sm text-ink/40">未付款合計 ${totalOutstanding}</div>
-          </div>
-
-          {filtered.length === 0 && filteredManual.length === 0 && (
-            <div className="text-center py-8 text-sm text-ink/40 bg-white rounded-2xl shadow-card">這個篩選條件下沒有資料</div>
-          )}
-
-          <div className="space-y-3">
-            {filtered.map((t, i) => {
-              const key = `${t.from}-${t.to}`
-              const isOpen = expanded === key
-              const paid = isPaid(t)
-              const payerDetail = detail[t.from] || []
-              const methods = memberMethods(t.to)
-              return (
-                <div key={i} className={`bg-white rounded-2xl shadow-card overflow-hidden ${paid ? 'opacity-60' : ''}`}>
-                  <div className="w-full flex items-center justify-between px-4 py-3.5">
-                    <button onClick={() => togglePaid(t)} className="shrink-0 mr-3" aria-label={paid ? '標記為未付款' : '標記為已付款'}>
-                      {paid ? <CheckCircle2 size={22} className="text-green" /> : <Circle size={22} className="text-ink/25" />}
-                    </button>
-                    <button onClick={() => setExpanded(isOpen ? null : key)} className="flex-1 flex items-center justify-between text-left">
-                      <div className={`text-base ${paid ? 'line-through' : ''}`}>
-                        <span className="font-semibold text-ink">{memberName(t.from)}</span>
-                        <span className="text-ink/40 mx-1">付給</span>
-                        <span className="font-semibold text-ink">{memberName(t.to)}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-orange-dark text-lg">${t.amount}</span>
-                        <ChevronDown size={18} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                      </div>
-                    </button>
-                  </div>
-                  {isOpen && (
-                    <div className="px-4 pb-4 border-t border-black/5 pt-3 space-y-3">
-                      <div>
-                        <div className="text-xs font-medium text-ink/40 mb-1">相關場次</div>
-                        <div className="space-y-1">
-                          {payerDetail.map((d, idx) => (
-                            <div key={idx} className="flex justify-between text-sm text-ink/60">
-                              <span>{d.date} · {d.activityTypeLabel}</span>
-                              <span>${Math.round(d.share)}</span>
-                            </div>
-                          ))}
-                          {payerDetail.length === 0 && <div className="text-sm text-ink/30">（金額已經過債務簡化，非單一場次直接對應）</div>}
-                        </div>
-                      </div>
-                      {methods.length > 0 && (
-                        <div>
-                          <div className="text-xs font-medium text-ink/40 mb-1">{memberName(t.to)} 的收款方式（點圖放大掃描）</div>
-                          <div className="flex flex-wrap gap-3">
-                            {methods.map(m => (
-                              <div key={m.id} className="flex items-center gap-2 bg-paper rounded-xl p-2">
-                                <QrImage src={m.qrcodeUrl} label={`${memberName(t.to)} · ${m.type}`} size="lg" />
-                                <div className="text-sm">
-                                  <div className="font-medium">{m.type}</div>
-                                  <div className="text-ink/50">{m.account}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            {filteredManual.map(m => (
-              <div key={m.id} className={`bg-white rounded-2xl shadow-card px-4 py-3.5 flex items-center justify-between ${m.paid ? 'opacity-60' : ''}`}>
-                <button onClick={() => updateManualEntry(m.id, { paid: !m.paid })} className="shrink-0 mr-3">
-                  {m.paid ? <CheckCircle2 size={22} className="text-green" /> : <Circle size={22} className="text-ink/25" />}
-                </button>
-                <div className={`flex-1 text-base ${m.paid ? 'line-through' : ''}`}>
-                  <span className="font-semibold text-ink">{memberName(m.from)}</span>
-                  <span className="text-ink/40 mx-1">付給</span>
-                  <span className="font-semibold text-ink">{memberName(m.to)}</span>
-                  {m.note && <span className="text-ink/40 text-sm ml-2">（{m.note}）</span>}
-                </div>
-                <span className="font-bold text-accent text-lg mr-3">${m.amount}</span>
-                <button onClick={() => window.confirm('確定刪除這筆手動項目？') && deleteManualEntry(m.id)} className="text-ink/30 hover:text-red-500">
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
+      {filtered.length === 0 && (
+        <div className="text-center py-10 text-base text-ink/40 bg-white rounded-2xl shadow-card">還沒有任何場次紀錄</div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-card p-4">
-        {addingManual ? (
-          <form onSubmit={submitManual} className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-ink">新增手動項目</h3>
-              <button type="button" onClick={() => setAddingManual(false)}><X size={18} /></button>
+      <div className="space-y-4">
+        {filtered.map(session => {
+          const attendees = session.attendeeIds || []
+          const paidIds = session.paidMemberIds || []
+          const isPaidPerson = (id) => id === session.payerId || paidIds.includes(id)
+          const paidCount = attendees.filter(isPaidPerson).length
+          const unpaidCount = attendees.length - paidCount
+          const upcoming = session.date > today
+          const perPerson = attendees.length ? session.totalCost / attendees.length : session.totalCost
+          const methods = session.payerId ? memberMethods(session.payerId) : []
+
+          return (
+            <div key={session.id}
+              className={`rounded-2xl shadow-card p-4 border ${upcoming ? 'bg-amber-50 border-amber-200' : 'bg-white border-transparent'}`}>
+              <div className="flex items-start justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {upcoming && (
+                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">時間未到</span>
+                  )}
+                  <span className="font-semibold text-ink text-base">{fmtDateWithWeekday(session.date)}</span>
+                  <span className="text-sm text-ink/50">{session.startTime}-{session.endTime}</span>
+                  <span className="text-sm font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">
+                    {sessionEmoji(session)} {sessionTypeLabel(session)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-light text-green-dark">{paidCount} 已付款</span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-500">{unpaidCount} 未付款</span>
+                  <button onClick={() => setEditingSession(session)} className="text-sm font-medium text-accent bg-accent-light px-2.5 py-1 rounded-full flex items-center gap-1">
+                    <Pencil size={13} /> 編輯
+                  </button>
+                  <button onClick={() => window.confirm('確定刪除此場次？') && deleteSession(session.id)}
+                    className="text-sm font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+                    <Trash2 size={13} /> 刪除
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-sm text-ink/60 mt-2">
+                總費用 ${session.totalCost} · {attendees.length} 人 · 每人 ${perPerson.toFixed(2)} · 付款人 {session.payerId ? memberName(session.payerId) : '待確認'}
+              </div>
+
+              {attendees.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {attendees.map(id => {
+                    const paid = isPaidPerson(id)
+                    const isPayer = id === session.payerId
+                    return (
+                      <div key={id}
+                        className={`flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-xl border text-sm font-medium ${
+                          paid ? 'bg-green-light border-green/40 text-green-dark' : 'bg-red-50 border-red-200 text-red-500'
+                        }`}>
+                        <span className={isPayer ? 'text-ink' : ''}>{memberName(id)}</span>
+                        <select
+                          value={paid ? 'paid' : 'unpaid'}
+                          disabled={isPayer}
+                          onChange={() => togglePersonPaid(session, id)}
+                          className={`bg-transparent text-xs font-semibold pr-1 focus:outline-none ${isPayer ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <option value="paid">已付款</option>
+                          <option value="unpaid">未付款</option>
+                        </select>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {session.payerId && (
+                <div className="mt-3">
+                  <button onClick={() => setShowMethodsFor(showMethodsFor === session.id ? null : session.id)}
+                    className="flex items-center gap-1 text-sm font-medium text-accent">
+                    {memberName(session.payerId)} 的收款方式
+                    <ChevronDown size={14} className={`transition-transform ${showMethodsFor === session.id ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showMethodsFor === session.id && (
+                    methods.length === 0 ? (
+                      <div className="text-sm text-ink/40 mt-2">這個人還沒有設定收款方式</div>
+                    ) : (
+                      <div className="flex flex-wrap gap-3 mt-2">
+                        {methods.map(m => (
+                          <div key={m.id} className="flex items-center gap-2 bg-paper rounded-xl p-2">
+                            <QrImage src={m.qrcodeUrl} label={`${memberName(session.payerId)} · ${m.type}`} size="lg" />
+                            <div className="text-sm">
+                              <div className="font-medium">{m.type}</div>
+                              <div className="text-ink/50">{m.account}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <select value={manualForm.from} onChange={e => setManualForm(f => ({ ...f, from: e.target.value }))}
-                className="rounded-lg border border-black/10 px-2 py-2 text-sm" required>
-                <option value="">付款人</option>
-                {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
-              </select>
-              <select value={manualForm.to} onChange={e => setManualForm(f => ({ ...f, to: e.target.value }))}
-                className="rounded-lg border border-black/10 px-2 py-2 text-sm" required>
-                <option value="">收款人</option>
-                {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
-              </select>
-            </div>
-            <input type="number" min="0" value={manualForm.amount} onChange={e => setManualForm(f => ({ ...f, amount: e.target.value }))}
-              placeholder="金額" className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm" required />
-            <input value={manualForm.note} onChange={e => setManualForm(f => ({ ...f, note: e.target.value }))}
-              placeholder="備註（選填）" className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm" />
-            <button className="w-full bg-orange text-white rounded-xl py-2.5 font-semibold active:scale-95 transition-transform">新增</button>
-          </form>
-        ) : (
-          <button onClick={() => setAddingManual(true)} className="w-full flex items-center justify-center gap-1 text-sm font-medium text-accent py-1">
-            <Plus size={16} /> 新增手動項目
-          </button>
-        )}
+          )
+        })}
       </div>
+
+      {editingSession && <SessionFormModal session={editingSession} onClose={() => setEditingSession(null)} />}
     </div>
   )
 }

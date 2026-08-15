@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { db } from '../firebase.js'
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc,
+  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
   query, orderBy, serverTimestamp,
 } from 'firebase/firestore'
 
@@ -26,33 +26,21 @@ export function DataProvider({ children }) {
   const [members, membersLoading] = useCollection('members', 'name')
   const [sessions, sessionsLoading] = useCollection('sessions', 'date')
   const [activityTypes, actLoading] = useCollection('activityTypes', 'name')
-  const [settlementRounds] = useCollection('settlementRounds', 'closedAt')
-  const [paidMarks] = useCollection('paidMarks')
-  const [manualEntries] = useCollection('manualEntries', 'createdAt')
 
   const api = {
-    members, sessions, activityTypes, settlementRounds, paidMarks, manualEntries,
+    members, sessions, activityTypes,
     loading: membersLoading || sessionsLoading || actLoading,
 
     addMember: (data) => addDoc(collection(db, 'members'), { active: true, paymentMethods: [], ...data }),
     updateMember: (id, data) => updateDoc(doc(db, 'members', id), data),
     deleteMember: (id) => deleteDoc(doc(db, 'members', id)),
 
-    addSession: (data) => addDoc(collection(db, 'sessions'), { attendeeIds: [], createdAt: serverTimestamp(), ...data }),
+    // paidMemberIds：這場次裡，除了付款人以外，還有哪些人已經把自己那份錢付給付款人了
+    addSession: (data) => addDoc(collection(db, 'sessions'), { attendeeIds: [], paidMemberIds: [], createdAt: serverTimestamp(), ...data }),
     updateSession: (id, data) => updateDoc(doc(db, 'sessions', id), data),
     deleteSession: (id) => deleteDoc(doc(db, 'sessions', id)),
 
     addActivityType: (name) => addDoc(collection(db, 'activityTypes'), { name }),
-
-    closeSettlementRound: () => addDoc(collection(db, 'settlementRounds'), { closedAt: serverTimestamp() }),
-
-    // key 格式：roundKey_from_to，用來標記某筆分帳是否已付款
-    setPaidMark: (key, paid) => setDoc(doc(db, 'paidMarks', key), { paid }, { merge: true }),
-
-    // 手動新增的分帳項目（不是從場次自動算出來的），可以個別標記付款或刪除
-    addManualEntry: (data) => addDoc(collection(db, 'manualEntries'), { paid: false, createdAt: serverTimestamp(), ...data }),
-    updateManualEntry: (id, data) => updateDoc(doc(db, 'manualEntries', id), data),
-    deleteManualEntry: (id) => deleteDoc(doc(db, 'manualEntries', id)),
   }
 
   return <DataContext.Provider value={api}>{children}</DataContext.Provider>

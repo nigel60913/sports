@@ -14,3 +14,9 @@ export function buildCalendarGrid(monthDate) {
 
 export const fmt = (d, f = 'yyyy-MM-dd') => format(d, f)
 export { isSameMonth, isSameDay }
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+export function fmtDateWithWeekday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${format(d, 'yyyy/MM/dd')}（週${WEEKDAYS[d.getDay()]}）`
+}
