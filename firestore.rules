@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 目前設定為「圈內連結共享、免登入即可讀寫」，符合小型好友揪團工具的信任模式。
+    // 若之後想加上驗證保護，可以改成檢查 request.auth != null，並搭配 Firebase Authentication。
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
