@@ -3,11 +3,18 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+html { font-size: 17.5px; }
 body {
   background: #FBFAF6;
   color: #26261F;
   -webkit-tap-highlight-color: transparent;
 }
+
+@keyframes brandBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.animate-brandBounce { animation: brandBounce 1.8s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

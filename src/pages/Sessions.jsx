@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, Pencil, X, Clock, MapPin } from 'lucide-react'
+import { Plus, Trash2, Pencil, X, Clock, MapPin, UserPlus } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
+import JoinSessionModal from '../components/JoinSessionModal.jsx'
 
 const emptyForm = { date: '', startTime: '', endTime: '', activityType: '', totalCost: '', payerId: '', location: '', attendeeIds: [] }
 
@@ -11,6 +12,7 @@ export default function Sessions() {
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [newType, setNewType] = useState('')
+  const [joiningSession, setJoiningSession] = useState(null)
 
   const activeMembers = members.filter(m => m.active !== false)
 
@@ -43,9 +45,9 @@ export default function Sessions() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-ink">場次紀錄</h1>
-        <button onClick={openNew} className="bg-orange text-white rounded-xl px-3 py-2 flex items-center gap-1 text-sm font-medium active:scale-95 transition-transform">
-          <Plus size={16} /> 新增場次
+        <h1 className="font-display text-3xl font-bold text-ink">場次紀錄</h1>
+        <button onClick={openNew} className="bg-orange text-white rounded-xl px-3 py-2 flex items-center gap-1 text-base font-medium active:scale-95 transition-transform">
+          <Plus size={18} /> 新增場次
         </button>
       </div>
 
@@ -56,29 +58,35 @@ export default function Sessions() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-ink">{s.date}</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">{s.activityType}</span>
+                  <span className="font-semibold text-ink text-lg">{s.date}</span>
+                  <span className="text-sm font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">{s.activityType}</span>
                 </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/60">
-                  <span className="flex items-center gap-1"><Clock size={12} /> {s.startTime}–{s.endTime}</span>
-                  {s.location && <span className="flex items-center gap-1"><MapPin size={12} /> {s.location}</span>}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
+                  <span className="flex items-center gap-1"><Clock size={14} /> {s.startTime}–{s.endTime}</span>
+                  {s.location && <span className="flex items-center gap-1"><MapPin size={14} /> {s.location}</span>}
                 </div>
-                <div className="text-xs text-ink/50 mt-1">
+                <div className="text-sm text-ink/50 mt-1">
                   出席：{(s.attendeeIds || []).map(memberName).join('、') || '無'}
                 </div>
+                <button onClick={() => setJoiningSession(s)}
+                  className="mt-2 flex items-center gap-1 text-sm font-semibold text-orange-dark bg-orange-light px-3 py-1 rounded-full active:scale-95 transition-transform">
+                  <UserPlus size={14} /> 我要加入
+                </button>
               </div>
               <div className="text-right shrink-0 ml-2">
-                <div className="text-orange-dark font-bold">${s.totalCost}</div>
-                <div className="text-[11px] text-ink/40">付款人 {memberName(s.payerId)}</div>
+                <div className="text-orange-dark font-bold text-lg">${s.totalCost}</div>
+                <div className="text-xs text-ink/40">付款人 {memberName(s.payerId)}</div>
                 <div className="flex gap-2 mt-2 justify-end">
-                  <button onClick={() => openEdit(s)} className="text-ink/40 hover:text-ink"><Pencil size={15} /></button>
-                  <button onClick={() => window.confirm('確定刪除此場次？') && deleteSession(s.id)} className="text-ink/40 hover:text-red-500"><Trash2 size={15} /></button>
+                  <button onClick={() => openEdit(s)} className="text-ink/40 hover:text-ink"><Pencil size={16} /></button>
+                  <button onClick={() => window.confirm('確定刪除此場次？') && deleteSession(s.id)} className="text-ink/40 hover:text-red-500"><Trash2 size={16} /></button>
                 </div>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {joiningSession && <JoinSessionModal session={joiningSession} onClose={() => setJoiningSession(null)} />}
 
       <AnimatePresence>
         {open && (

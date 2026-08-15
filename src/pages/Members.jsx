@@ -23,11 +23,11 @@ export default function Members() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-display text-2xl font-bold text-ink">人員設定</h1>
+      <h1 className="font-display text-3xl font-bold text-ink">人員設定</h1>
 
       <form onSubmit={submit} className="flex gap-2">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="輸入姓名新增人員"
-          className="flex-1 rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange" />
+          className="flex-1 rounded-xl border border-black/10 px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-orange" />
         <button className="bg-orange text-white rounded-xl px-4 flex items-center gap-1 font-medium text-sm active:scale-95 transition-transform">
           <Plus size={16} /> 新增
         </button>
@@ -47,7 +47,7 @@ export default function Members() {
             ) : (
               <>
                 <div className="flex items-center gap-2">
-                  <span className={`font-medium text-sm ${m.active === false ? 'text-ink/30 line-through' : 'text-ink'}`}>{m.name}</span>
+                  <span className={`font-medium text-base ${m.active === false ? 'text-ink/30 line-through' : 'text-ink'}`}>{m.name}</span>
                   {m.active === false && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 text-ink/40">已停用</span>}
                 </div>
                 <div className="flex items-center gap-3">

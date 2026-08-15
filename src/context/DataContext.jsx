@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { db } from '../firebase.js'
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc,
   query, orderBy, serverTimestamp,
 } from 'firebase/firestore'
 
@@ -27,9 +27,10 @@ export function DataProvider({ children }) {
   const [sessions, sessionsLoading] = useCollection('sessions', 'date')
   const [activityTypes, actLoading] = useCollection('activityTypes', 'name')
   const [settlementRounds] = useCollection('settlementRounds', 'closedAt')
+  const [paidMarks] = useCollection('paidMarks')
 
   const api = {
-    members, sessions, activityTypes, settlementRounds,
+    members, sessions, activityTypes, settlementRounds, paidMarks,
     loading: membersLoading || sessionsLoading || actLoading,
 
     addMember: (data) => addDoc(collection(db, 'members'), { active: true, paymentMethods: [], ...data }),
@@ -43,6 +44,9 @@ export function DataProvider({ children }) {
     addActivityType: (name) => addDoc(collection(db, 'activityTypes'), { name }),
 
     closeSettlementRound: () => addDoc(collection(db, 'settlementRounds'), { closedAt: serverTimestamp() }),
+
+    // key 格式：roundKey_from_to，用來標記某筆分帳是否已付款
+    setPaidMark: (key, paid) => setDoc(doc(db, 'paidMarks', key), { paid }, { merge: true }),
   }
 
   return <DataContext.Provider value={api}>{children}</DataContext.Provider>
