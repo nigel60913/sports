@@ -28,6 +28,9 @@ export function simplifyDebts(balances) {
 
 // 計算每場次每人分攤金額與付款人淨額
 export function computeBalances(sessions, members) {
+  const typeLabel = (s) => (Array.isArray(s.activityTypes) && s.activityTypes.length)
+    ? s.activityTypes.join('、')
+    : (s.activityType || '未分類')
   const net = {}
   members.forEach(m => { net[m.id] = 0 })
   const detail = {}
@@ -43,7 +46,7 @@ export function computeBalances(sessions, members) {
         net[mid] -= share
         net[s.payerId] = (net[s.payerId] || 0) + share
         if (!detail[mid]) detail[mid] = []
-        detail[mid].push({ sessionId: s.id, date: s.date, activityType: s.activityType, share })
+        detail[mid].push({ sessionId: s.id, date: s.date, activityTypeLabel: typeLabel(s), share })
       }
     })
   })

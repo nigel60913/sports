@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Clock, MapPin, Users as UsersIcon, X } from 
 import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext.jsx'
 import { buildCalendarGrid, fmt, isSameMonth, isSameDay } from '../utils/dateUtils.js'
+import { sessionTypeLabel, sessionEmoji, sessionTypes } from '../utils/session.js'
 
 export default function Home() {
   const { sessions, members } = useData()
@@ -60,9 +61,9 @@ export default function Home() {
               <Link to="/sessions" className="block bg-white rounded-2xl shadow-card p-4 hover:shadow-lg transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{s.activityType === '羽球' ? '🏸' : s.activityType === '匹克球' ? '🎾' : '⚡️'}</span>
+                    <span className="text-base">{sessionEmoji(s)}</span>
                     <span className="font-semibold text-ink">{fmt(new Date(s.date), 'M/d')}</span>
-                    <span className="text-sm font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">{s.activityType}</span>
+                    <span className="text-sm font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">{sessionTypeLabel(s)}</span>
                   </div>
                   <span className="text-orange-dark font-bold text-lg">${s.totalCost}</span>
                 </div>
@@ -106,7 +107,7 @@ export default function Home() {
                 {items.length > 0 && (
                   <span className="absolute bottom-0.5 flex gap-0.5">
                     {items.slice(0, 3).map((it, i) => (
-                      <span key={i} className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : it.activityType === '羽球' ? 'bg-green' : 'bg-accent'}`} />
+                      <span key={i} className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : sessionTypes(it).includes('羽球') ? 'bg-green' : 'bg-accent'}`} />
                     ))}
                   </span>
                 )}

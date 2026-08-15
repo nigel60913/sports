@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Check } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
+import { sessionTypeLabel } from '../utils/session.js'
 
 export default function JoinSessionModal({ session, onClose }) {
   const { members, addMember, updateSession } = useData()
@@ -36,7 +37,7 @@ export default function JoinSessionModal({ session, onClose }) {
             <h2 className="font-display text-lg font-bold">我要加入</h2>
             <button onClick={onClose}><X size={20} /></button>
           </div>
-          <p className="text-sm text-ink/50">{session.date} · {session.activityType}</p>
+          <p className="text-sm text-ink/50">{session.date} · {sessionTypeLabel(session)}</p>
 
           <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto">
             {activeMembers.map(m => {

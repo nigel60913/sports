@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, Pencil, X, Clock, MapPin, UserPlus } from 'lucide-react'
+import { Plus, Trash2, Pencil, X, Clock, MapPin, UserPlus, CalendarPlus, CalendarDays } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
 import JoinSessionModal from '../components/JoinSessionModal.jsx'
+import { sessionTypeLabel } from '../utils/session.js'
+import { buildICS, downloadICS } from '../utils/ics.js'
 
-const emptyForm = { date: '', startTime: '', endTime: '', activityType: '', totalCost: '', payerId: '', location: '', attendeeIds: [] }
+const emptyForm = { date: '', startTime: '18:00', endTime: '21:00', activityTypes: [], totalCost: '', payerId: '', location: '', attendeeIds: [] }
 
 export default function Sessions() {
   const { sessions, members, activityTypes, addActivityType, addSession, updateSession, deleteSession } = useData()
@@ -17,16 +19,28 @@ export default function Sessions() {
   const activeMembers = members.filter(m => m.active !== false)
 
   const openNew = () => { setForm(emptyForm); setEditingId(null); setOpen(true) }
-  const openEdit = (s) => { setForm({ ...emptyForm, ...s, totalCost: String(s.totalCost) }); setEditingId(s.id); setOpen(true) }
+  const openEdit = (s) => {
+    setForm({
+      ...emptyForm, ...s,
+      activityTypes: s.activityTypes || (s.activityType ? [s.activityType] : []),
+      totalCost: String(s.totalCost),
+    })
+    setEditingId(s.id); setOpen(true)
+  }
 
   const toggleAttendee = (id) => {
     setForm(f => ({ ...f, attendeeIds: f.attendeeIds.includes(id) ? f.attendeeIds.filter(x => x !== id) : [...f.attendeeIds, id] }))
   }
 
+  const toggleType = (name) => {
+    setForm(f => ({ ...f, activityTypes: f.activityTypes.includes(name) ? f.activityTypes.filter(x => x !== name) : [...f.activityTypes, name] }))
+  }
+
   const submit = async (e) => {
     e.preventDefault()
-    if (!form.date || !form.activityType || !form.totalCost || !form.payerId) return
-    const payload = { ...form, totalCost: parseFloat(form.totalCost) }
+    if (!form.date || !form.activityTypes.length || !form.totalCost || !form.payerId) return
+    const { activityType, ...rest } = form
+    const payload = { ...rest, totalCost: parseFloat(form.totalCost) }
     if (editingId) await updateSession(editingId, payload)
     else await addSession(payload)
     setOpen(false)
@@ -35,20 +49,34 @@ export default function Sessions() {
   const addType = async () => {
     if (!newType.trim()) return
     await addActivityType(newType.trim())
-    setForm(f => ({ ...f, activityType: newType.trim() }))
+    setForm(f => ({ ...f, activityTypes: [...f.activityTypes, newType.trim()] }))
     setNewType('')
   }
 
   const sorted = [...sessions].sort((a, b) => (a.date < b.date ? 1 : -1))
   const memberName = (id) => members.find(m => m.id === id)?.name || '—'
 
+  const exportAll = () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const upcoming = sessions.filter(s => s.date >= today)
+    if (!upcoming.length) return
+    downloadICS('yundongla-場次.ics', buildICS(upcoming, memberName))
+  }
+
+  const exportOne = (s) => downloadICS(`yundongla-${s.date}.ics`, buildICS([s], memberName))
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="font-display text-3xl font-bold text-ink">場次紀錄</h1>
-        <button onClick={openNew} className="bg-orange text-white rounded-xl px-3 py-2 flex items-center gap-1 text-base font-medium active:scale-95 transition-transform">
-          <Plus size={18} /> 新增場次
-        </button>
+        <div className="flex gap-2">
+          <button onClick={exportAll} className="bg-white shadow-card text-ink/70 rounded-xl px-3 py-2 flex items-center gap-1 text-sm font-medium active:scale-95 transition-transform">
+            <CalendarDays size={16} /> 匯出全部到行事曆
+          </button>
+          <button onClick={openNew} className="bg-orange text-white rounded-xl px-3 py-2 flex items-center gap-1 text-base font-medium active:scale-95 transition-transform">
+            <Plus size={18} /> 新增場次
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -59,7 +87,7 @@ export default function Sessions() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-semibold text-ink text-lg">{s.date}</span>
-                  <span className="text-sm font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">{s.activityType}</span>
+                  <span className="text-sm font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-dark">{sessionTypeLabel(s)}</span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
                   <span className="flex items-center gap-1"><Clock size={14} /> {s.startTime}–{s.endTime}</span>
@@ -68,10 +96,16 @@ export default function Sessions() {
                 <div className="text-sm text-ink/50 mt-1">
                   出席：{(s.attendeeIds || []).map(memberName).join('、') || '無'}
                 </div>
-                <button onClick={() => setJoiningSession(s)}
-                  className="mt-2 flex items-center gap-1 text-sm font-semibold text-orange-dark bg-orange-light px-3 py-1 rounded-full active:scale-95 transition-transform">
-                  <UserPlus size={14} /> 我要加入
-                </button>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => setJoiningSession(s)}
+                    className="flex items-center gap-1 text-sm font-semibold text-orange-dark bg-orange-light px-3 py-1 rounded-full active:scale-95 transition-transform">
+                    <UserPlus size={14} /> 我要加入
+                  </button>
+                  <button onClick={() => exportOne(s)}
+                    className="flex items-center gap-1 text-sm font-semibold text-accent bg-accent-light px-3 py-1 rounded-full active:scale-95 transition-transform">
+                    <CalendarPlus size={14} /> 加入行事曆
+                  </button>
+                </div>
               </div>
               <div className="text-right shrink-0 ml-2">
                 <div className="text-orange-dark font-bold text-lg">${s.totalCost}</div>
@@ -116,11 +150,11 @@ export default function Sessions() {
                 </label>
               </div>
 
-              <label className="text-xs text-ink/50 block">活動項目
+              <label className="text-xs text-ink/50 block">活動項目（可複選）
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {activityTypes.map(t => (
-                    <button type="button" key={t.id} onClick={() => setForm(f => ({ ...f, activityType: t.name }))}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border ${form.activityType === t.name ? 'bg-orange text-white border-orange' : 'border-black/10 text-ink/70'}`}>
+                    <button type="button" key={t.id} onClick={() => toggleType(t.name)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border ${form.activityTypes.includes(t.name) ? 'bg-orange text-white border-orange' : 'border-black/10 text-ink/70'}`}>
                       {t.name}
                     </button>
                   ))}

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { ChevronDown, CheckCircle2, Circle } from 'lucide-react'
+import { ChevronDown, CheckCircle2, Circle, Plus, Trash2, X } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
 import { computeBalances, simplifyDebts } from '../utils/settleDebts.js'
 import QrImage from '../components/QrImage.jsx'
@@ -11,9 +11,14 @@ const FILTERS = [
 ]
 
 export default function Settlement() {
-  const { sessions, members, settlementRounds, closeSettlementRound, paidMarks, setPaidMark } = useData()
+  const {
+    sessions, members, settlementRounds, closeSettlementRound, paidMarks, setPaidMark,
+    manualEntries, addManualEntry, updateManualEntry, deleteManualEntry,
+  } = useData()
   const [expanded, setExpanded] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [addingManual, setAddingManual] = useState(false)
+  const [manualForm, setManualForm] = useState({ from: '', to: '', amount: '', note: '' })
 
   const lastRound = settlementRounds.length ? settlementRounds[settlementRounds.length - 1] : null
   const roundKey = lastRound ? lastRound.id : 'r0'
@@ -31,26 +36,48 @@ export default function Settlement() {
   const togglePaid = (t) => setPaidMark(`${roundKey}_${t.from}_${t.to}`, !isPaid(t))
 
   const filtered = transactions.filter(t => filter === 'all' ? true : filter === 'paid' ? isPaid(t) : !isPaid(t))
+  const filteredManual = manualEntries.filter(m => filter === 'all' ? true : filter === 'paid' ? m.paid : !m.paid)
 
   const memberName = (id) => members.find(m => m.id === id)?.name || '—'
   const memberMethods = (id) => members.find(m => m.id === id)?.paymentMethods || []
 
   const totalOutstanding = transactions.filter(t => !isPaid(t)).reduce((s, t) => s + t.amount, 0)
+    + manualEntries.filter(m => !m.paid).reduce((s, m) => s + m.amount, 0)
+
+  const hasItems = transactions.length > 0 || manualEntries.length > 0
+  const allPaid = transactions.every(isPaid) && manualEntries.every(m => m.paid)
+
+  const submitManual = async (e) => {
+    e.preventDefault()
+    if (!manualForm.from || !manualForm.to || !manualForm.amount) return
+    await addManualEntry({
+      from: manualForm.from, to: manualForm.to,
+      amount: parseFloat(manualForm.amount), note: manualForm.note.trim(),
+    })
+    setManualForm({ from: '', to: '', amount: '', note: '' })
+    setAddingManual(false)
+  }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-ink">分帳</h1>
-        {transactions.length > 0 && (
-          <button
-            onClick={() => window.confirm('確定所有款項都已完成轉帳了嗎？結清後這期間的場次將不再計入分帳。') && closeSettlementRound()}
-            className="text-sm font-medium text-green-dark bg-green-light px-3 py-1.5 rounded-full flex items-center gap-1">
-            <CheckCircle2 size={16} /> 全部結清
-          </button>
+        {hasItems && (
+          <div className="text-right">
+            <button
+              disabled={!allPaid}
+              onClick={() => window.confirm('確定所有款項都已完成轉帳了嗎？結清後這期間的場次將不再計入分帳。') && closeSettlementRound()}
+              className={`text-sm font-medium px-3 py-1.5 rounded-full flex items-center gap-1 ${
+                allPaid ? 'text-green-dark bg-green-light' : 'text-ink/30 bg-black/5 cursor-not-allowed'
+              }`}>
+              <CheckCircle2 size={16} /> 全部結清
+            </button>
+            {!allPaid && <div className="text-xs text-ink/30 mt-1">所有項目都標記已付款後才能結清</div>}
+          </div>
         )}
       </div>
 
-      {transactions.length === 0 ? (
+      {!hasItems ? (
         <div className="text-center py-10 text-base text-ink/40 bg-white rounded-2xl shadow-card">
           目前沒有需要分帳的款項 🎉
         </div>
@@ -68,7 +95,7 @@ export default function Settlement() {
             <div className="text-sm text-ink/40">未付款合計 ${totalOutstanding}</div>
           </div>
 
-          {filtered.length === 0 && (
+          {filtered.length === 0 && filteredManual.length === 0 && (
             <div className="text-center py-8 text-sm text-ink/40 bg-white rounded-2xl shadow-card">這個篩選條件下沒有資料</div>
           )}
 
@@ -104,7 +131,7 @@ export default function Settlement() {
                         <div className="space-y-1">
                           {payerDetail.map((d, idx) => (
                             <div key={idx} className="flex justify-between text-sm text-ink/60">
-                              <span>{d.date} · {d.activityType}</span>
+                              <span>{d.date} · {d.activityTypeLabel}</span>
                               <span>${Math.round(d.share)}</span>
                             </div>
                           ))}
@@ -132,9 +159,59 @@ export default function Settlement() {
                 </div>
               )
             })}
+
+            {filteredManual.map(m => (
+              <div key={m.id} className={`bg-white rounded-2xl shadow-card px-4 py-3.5 flex items-center justify-between ${m.paid ? 'opacity-60' : ''}`}>
+                <button onClick={() => updateManualEntry(m.id, { paid: !m.paid })} className="shrink-0 mr-3">
+                  {m.paid ? <CheckCircle2 size={22} className="text-green" /> : <Circle size={22} className="text-ink/25" />}
+                </button>
+                <div className={`flex-1 text-base ${m.paid ? 'line-through' : ''}`}>
+                  <span className="font-semibold text-ink">{memberName(m.from)}</span>
+                  <span className="text-ink/40 mx-1">付給</span>
+                  <span className="font-semibold text-ink">{memberName(m.to)}</span>
+                  {m.note && <span className="text-ink/40 text-sm ml-2">（{m.note}）</span>}
+                </div>
+                <span className="font-bold text-accent text-lg mr-3">${m.amount}</span>
+                <button onClick={() => window.confirm('確定刪除這筆手動項目？') && deleteManualEntry(m.id)} className="text-ink/30 hover:text-red-500">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
           </div>
         </>
       )}
+
+      <div className="bg-white rounded-2xl shadow-card p-4">
+        {addingManual ? (
+          <form onSubmit={submitManual} className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-ink">新增手動項目</h3>
+              <button type="button" onClick={() => setAddingManual(false)}><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={manualForm.from} onChange={e => setManualForm(f => ({ ...f, from: e.target.value }))}
+                className="rounded-lg border border-black/10 px-2 py-2 text-sm" required>
+                <option value="">付款人</option>
+                {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
+              </select>
+              <select value={manualForm.to} onChange={e => setManualForm(f => ({ ...f, to: e.target.value }))}
+                className="rounded-lg border border-black/10 px-2 py-2 text-sm" required>
+                <option value="">收款人</option>
+                {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
+              </select>
+            </div>
+            <input type="number" min="0" value={manualForm.amount} onChange={e => setManualForm(f => ({ ...f, amount: e.target.value }))}
+              placeholder="金額" className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm" required />
+            <input value={manualForm.note} onChange={e => setManualForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="備註（選填）" className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm" />
+            <button className="w-full bg-orange text-white rounded-xl py-2.5 font-semibold active:scale-95 transition-transform">新增</button>
+          </form>
+        ) : (
+          <button onClick={() => setAddingManual(true)} className="w-full flex items-center justify-center gap-1 text-sm font-medium text-accent py-1">
+            <Plus size={16} /> 新增手動項目
+          </button>
+        )}
+      </div>
     </div>
   )
 }

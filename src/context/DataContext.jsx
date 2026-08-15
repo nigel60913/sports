@@ -28,9 +28,10 @@ export function DataProvider({ children }) {
   const [activityTypes, actLoading] = useCollection('activityTypes', 'name')
   const [settlementRounds] = useCollection('settlementRounds', 'closedAt')
   const [paidMarks] = useCollection('paidMarks')
+  const [manualEntries] = useCollection('manualEntries', 'createdAt')
 
   const api = {
-    members, sessions, activityTypes, settlementRounds, paidMarks,
+    members, sessions, activityTypes, settlementRounds, paidMarks, manualEntries,
     loading: membersLoading || sessionsLoading || actLoading,
 
     addMember: (data) => addDoc(collection(db, 'members'), { active: true, paymentMethods: [], ...data }),
@@ -47,6 +48,11 @@ export function DataProvider({ children }) {
 
     // key 格式：roundKey_from_to，用來標記某筆分帳是否已付款
     setPaidMark: (key, paid) => setDoc(doc(db, 'paidMarks', key), { paid }, { merge: true }),
+
+    // 手動新增的分帳項目（不是從場次自動算出來的），可以個別標記付款或刪除
+    addManualEntry: (data) => addDoc(collection(db, 'manualEntries'), { paid: false, createdAt: serverTimestamp(), ...data }),
+    updateManualEntry: (id, data) => updateDoc(doc(db, 'manualEntries', id), data),
+    deleteManualEntry: (id) => deleteDoc(doc(db, 'manualEntries', id)),
   }
 
   return <DataContext.Provider value={api}>{children}</DataContext.Provider>
