@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
 import { Plus, Trash2, QrCode, ChevronDown } from 'lucide-react'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { storage } from '../firebase.js'
 import { useData } from '../context/DataContext.jsx'
+import { fileToCompressedDataURL } from '../utils/image.js'
 
 const METHOD_TYPES = ['LinePay', '銀行轉帳', '其他']
 
@@ -43,11 +42,10 @@ function MemberPaymentCard({ member, open, onToggle, onSave }) {
     if (!file) return
     setUploading(true)
     try {
-      const path = `qrcodes/${member.id}_${methodId}_${file.name}`
-      const r = ref(storage, path)
-      await uploadBytes(r, file)
-      const url = await getDownloadURL(r)
-      onSave(methods.map(x => x.id === methodId ? { ...x, qrcodeUrl: url } : x))
+      // 圖片在瀏覽器端壓縮成小尺寸 JPEG，直接以 dataURL 存進 Firestore，
+      // 不經過 Firebase Storage，完全在免費 Spark 方案內運作。
+      const dataUrl = await fileToCompressedDataURL(file)
+      onSave(methods.map(x => x.id === methodId ? { ...x, qrcodeUrl: dataUrl } : x))
     } finally {
       setUploading(false)
     }
