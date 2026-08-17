@@ -55,7 +55,7 @@ export default function Settlement() {
           const paidCount = attendees.filter(isPaidPerson).length
           const unpaidCount = attendees.length - paidCount
           const upcoming = session.date > today
-          const perPerson = attendees.length ? session.totalCost / attendees.length : session.totalCost
+          const perPerson = attendees.length ? Math.round(session.totalCost / attendees.length) : Math.round(session.totalCost)
           const methods = session.payerId ? memberMethods(session.payerId) : []
 
           return (
@@ -85,7 +85,7 @@ export default function Settlement() {
               </div>
 
               <div className="text-sm text-ink/60 mt-2">
-                總費用 ${session.totalCost} · {attendees.length} 人 · 每人 ${perPerson.toFixed(2)} · 付款人 {session.payerId ? memberName(session.payerId) : '待確認'}
+                總費用 ${session.totalCost} · {attendees.length} 人 · 每人 ${perPerson} · 付款人 {session.payerId ? memberName(session.payerId) : '待確認'}
               </div>
 
               {attendees.length > 0 && (

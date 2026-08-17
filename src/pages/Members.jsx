@@ -56,7 +56,7 @@ export default function Members() {
                     {m.active === false ? '啟用' : '停用'}
                   </button>
                   <button onClick={() => startEdit(m)} className="text-ink/40 hover:text-ink"><Pencil size={16} /></button>
-                  <button onClick={() => window.confirm(`確定刪除 ${m.name}？`) && deleteMember(m.id)}
+                  <button onClick={() => window.confirm(`確定刪除 ${m.name}？這個人會同時從所有場次的出席名單和付款紀錄中移除，相關場次的人數與分攤金額會自動重新計算。`) && deleteMember(m.id)}
                     className="text-ink/40 hover:text-red-500"><Trash2 size={16} /></button>
                 </div>
               </>

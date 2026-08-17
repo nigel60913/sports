@@ -6,7 +6,7 @@ import { useData } from '../context/DataContext.jsx'
 const emptyForm = { date: '', startTime: '18:00', endTime: '21:00', activityTypes: [], totalCost: '', payerId: '', location: '', attendeeIds: [] }
 
 export default function SessionFormModal({ session, onClose }) {
-  const { members, activityTypes, addActivityType, addSession, updateSession } = useData()
+  const { members, activityTypes, addActivityType, deleteActivityType, addSession, updateSession } = useData()
   const [form, setForm] = useState(() => session ? {
     ...emptyForm, ...session,
     activityTypes: session.activityTypes || (session.activityType ? [session.activityType] : []),
@@ -21,6 +21,12 @@ export default function SessionFormModal({ session, onClose }) {
   }
   const toggleType = (name) => {
     setForm(f => ({ ...f, activityTypes: f.activityTypes.includes(name) ? f.activityTypes.filter(x => x !== name) : [...f.activityTypes, name] }))
+  }
+  const removeType = (e, t) => {
+    e.stopPropagation()
+    if (!window.confirm(`確定刪除活動項目「${t.name}」？之前用過這個項目的場次紀錄不受影響，只是之後選單裡不會再出現。`)) return
+    deleteActivityType(t.id)
+    setForm(f => ({ ...f, activityTypes: f.activityTypes.filter(x => x !== t.name) }))
   }
 
   const submit = async (e) => {
@@ -71,10 +77,13 @@ export default function SessionFormModal({ session, onClose }) {
           <label className="text-xs text-ink/50 block">活動項目（可複選）
             <div className="flex flex-wrap gap-1.5 mt-1">
               {activityTypes.map(t => (
-                <button type="button" key={t.id} onClick={() => toggleType(t.name)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border ${form.activityTypes.includes(t.name) ? 'bg-orange text-white border-orange' : 'border-black/10 text-ink/70'}`}>
-                  {t.name}
-                </button>
+                <span key={t.id}
+                  className={`flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-xs font-medium border ${form.activityTypes.includes(t.name) ? 'bg-orange text-white border-orange' : 'border-black/10 text-ink/70'}`}>
+                  <button type="button" onClick={() => toggleType(t.name)}>{t.name}</button>
+                  <button type="button" onClick={e => removeType(e, t)} className={form.activityTypes.includes(t.name) ? 'text-white/70' : 'text-ink/30'}>
+                    <X size={12} />
+                  </button>
+                </span>
               ))}
             </div>
             <div className="flex gap-1.5 mt-2">
