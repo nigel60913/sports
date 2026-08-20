@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
+import { syncSessionToCalendar } from '../utils/calendarSync.js'
 
 const emptyForm = { date: '', startTime: '18:00', endTime: '21:00', activityTypes: [], totalCost: '', payerId: '', location: '', attendeeIds: [] }
 
@@ -34,8 +35,12 @@ export default function SessionFormModal({ session, onClose }) {
     if (!form.date || !form.activityTypes.length || !form.totalCost || !form.payerId) return
     const { activityType, ...rest } = form
     const payload = { ...rest, totalCost: parseFloat(form.totalCost) }
-    if (session) await updateSession(session.id, payload)
-    else await addSession(payload)
+    if (session) {
+      await updateSession(session.id, payload)
+    } else {
+      await addSession(payload)
+      syncSessionToCalendar(payload, members) // 背景執行，不擋住畫面關閉，失敗也不影響場次已建立
+    }
     onClose()
   }
 
