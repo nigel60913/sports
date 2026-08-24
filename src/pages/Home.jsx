@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext.jsx'
 import { buildCalendarGrid, fmt, isSameMonth, isSameDay } from '../utils/dateUtils.js'
 import { sessionTypeLabel, sessionEmoji, sessionTypes } from '../utils/session.js'
+import WeatherWidget from '../components/WeatherWidget.jsx'
 
 export default function Home() {
   const { sessions, members } = useData()
@@ -36,6 +37,8 @@ export default function Home() {
           <div className="text-sm text-ink/50">看看最近有哪些場次揪團</div>
         </div>
       </div>
+
+      <WeatherWidget />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
