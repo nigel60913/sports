@@ -6,11 +6,14 @@ import { useData } from '../context/DataContext.jsx'
 import { buildCalendarGrid, fmt, isSameMonth, isSameDay } from '../utils/dateUtils.js'
 import { sessionTypeLabel, sessionEmoji, sessionTypes } from '../utils/session.js'
 import WeatherWidget from '../components/WeatherWidget.jsx'
+import SessionWeather from '../components/SessionWeather.jsx'
+import { useWeather } from '../hooks/useWeather.js'
 
 export default function Home() {
   const { sessions, members } = useData()
   const [monthDate, setMonthDate] = useState(new Date())
   const [selected, setSelected] = useState(null) // null = 顯示全部即將到來的場次
+  const weather = useWeather()
 
   const days = useMemo(() => buildCalendarGrid(monthDate), [monthDate])
   const sessionsByDate = useMemo(() => {
@@ -38,7 +41,7 @@ export default function Home() {
         </div>
       </div>
 
-      <WeatherWidget />
+      <WeatherWidget weather={weather} />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -74,7 +77,9 @@ export default function Home() {
                   <span className="flex items-center gap-1"><Clock size={14} /> {s.startTime}–{s.endTime}</span>
                   {s.location && <span className="flex items-center gap-1"><MapPin size={14} /> {s.location}</span>}
                   <span className="flex items-center gap-1"><UsersIcon size={14} /> {s.attendeeIds?.length || 0} 人 · 付款人 {memberName(s.payerId)}</span>
+                  {s.date !== today && <SessionWeather session={s} weather={weather} isToday={false} />}
                 </div>
+                {s.date === today && <SessionWeather session={s} weather={weather} isToday={true} />}
               </Link>
             </motion.div>
           ))}
