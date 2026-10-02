@@ -85,7 +85,10 @@ export default function Settlement() {
               </div>
 
               <div className="text-sm text-ink/60 mt-2">
-                總費用 ${session.totalCost} · {attendees.length} 人 · 每人 ${perPerson} · 付款人 {session.payerId ? memberName(session.payerId) : '待確認'}
+                總費用 ${session.totalCost} · {attendees.length}{session.maxAttendees ? `/${session.maxAttendees}` : ''} 人 · 每人 ${perPerson} · 付款人 {session.payerId ? memberName(session.payerId) : '待確認'}
+                {session.maxAttendees && attendees.length >= session.maxAttendees && (
+                  <span className="text-red-500 font-semibold"> · 已額滿</span>
+                )}
               </div>
 
               {attendees.length > 0 && (

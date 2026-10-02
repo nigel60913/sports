@@ -42,6 +42,11 @@ export default function Sessions() {
                 </div>
                 <div className="text-sm text-ink/50 mt-1">
                   出席：{(s.attendeeIds || []).map(memberName).join('、') || '無'}
+                  {s.maxAttendees && (
+                    <span className={`ml-1 font-semibold ${(s.attendeeIds?.length || 0) >= s.maxAttendees ? 'text-red-500' : 'text-ink/40'}`}>
+                      （{s.attendeeIds?.length || 0} / {s.maxAttendees}{(s.attendeeIds?.length || 0) >= s.maxAttendees ? '・已額滿' : ''}）
+                    </span>
+                  )}
                 </div>
                 <button onClick={() => setJoiningSession(s)}
                   className="mt-2 flex items-center gap-1 text-sm font-semibold text-orange-dark bg-orange-light px-3 py-1 rounded-full active:scale-95 transition-transform">

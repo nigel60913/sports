@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import { useData } from '../context/DataContext.jsx'
 import { syncSessionToCalendar } from '../utils/calendarSync.js'
 
-const emptyForm = { date: '', startTime: '18:00', endTime: '21:00', activityTypes: [], totalCost: '', payerId: '', location: '', attendeeIds: [] }
+const emptyForm = { date: '', startTime: '18:00', endTime: '21:00', activityTypes: [], totalCost: '', payerId: '', location: '', attendeeIds: [], maxAttendees: '' }
 
 export default function SessionFormModal({ session, onClose }) {
   const { members, activityTypes, addActivityType, deleteActivityType, addSession, updateSession } = useData()
@@ -18,7 +18,15 @@ export default function SessionFormModal({ session, onClose }) {
   const activeMembers = members.filter(m => m.active !== false)
 
   const toggleAttendee = (id) => {
-    setForm(f => ({ ...f, attendeeIds: f.attendeeIds.includes(id) ? f.attendeeIds.filter(x => x !== id) : [...f.attendeeIds, id] }))
+    setForm(f => {
+      const already = f.attendeeIds.includes(id)
+      const limit = f.maxAttendees ? parseInt(f.maxAttendees, 10) : null
+      if (!already && limit && f.attendeeIds.length >= limit) {
+        window.alert(`已經達到人數上限（${limit} 人），要新增這個人請先取消勾選別人，或是調高人數上限。`)
+        return f
+      }
+      return { ...f, attendeeIds: already ? f.attendeeIds.filter(x => x !== id) : [...f.attendeeIds, id] }
+    })
   }
   const toggleType = (name) => {
     setForm(f => ({ ...f, activityTypes: f.activityTypes.includes(name) ? f.activityTypes.filter(x => x !== name) : [...f.activityTypes, name] }))
@@ -34,7 +42,11 @@ export default function SessionFormModal({ session, onClose }) {
     e.preventDefault()
     if (!form.date || !form.activityTypes.length || !form.totalCost || !form.payerId) return
     const { activityType, ...rest } = form
-    const payload = { ...rest, totalCost: parseFloat(form.totalCost) }
+    const payload = {
+      ...rest,
+      totalCost: parseFloat(form.totalCost),
+      maxAttendees: form.maxAttendees ? parseInt(form.maxAttendees, 10) : null,
+    }
     if (session) {
       await updateSession(session.id, payload)
     } else {
@@ -103,10 +115,16 @@ export default function SessionFormModal({ session, onClose }) {
               className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm" placeholder="選填" />
           </label>
 
-          <label className="text-xs text-ink/50 block">費用總計
-            <input type="number" min="0" value={form.totalCost} onChange={e => setForm(f => ({ ...f, totalCost: e.target.value }))}
-              className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm" required />
-          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-ink/50 block">費用總計
+              <input type="number" min="0" value={form.totalCost} onChange={e => setForm(f => ({ ...f, totalCost: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm" required />
+            </label>
+            <label className="text-xs text-ink/50 block">人數上限
+              <input type="number" min="1" value={form.maxAttendees} onChange={e => setForm(f => ({ ...f, maxAttendees: e.target.value }))}
+                placeholder="不限" className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm" />
+            </label>
+          </div>
 
           <label className="text-xs text-ink/50 block">付款人
             <select value={form.payerId} onChange={e => setForm(f => ({ ...f, payerId: e.target.value }))}
@@ -118,13 +136,25 @@ export default function SessionFormModal({ session, onClose }) {
 
           <div className="text-xs text-ink/50 block">
             出席人員
+            {form.maxAttendees && (
+              <span className={`ml-1 font-semibold ${form.attendeeIds.length >= parseInt(form.maxAttendees, 10) ? 'text-red-500' : 'text-ink/40'}`}>
+                （{form.attendeeIds.length} / {form.maxAttendees}）
+              </span>
+            )}
             <div className="flex flex-wrap gap-1.5 mt-1">
-              {activeMembers.map(m => (
-                <button type="button" key={m.id} onClick={() => toggleAttendee(m.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border ${form.attendeeIds.includes(m.id) ? 'bg-green text-white border-green' : 'border-black/10 text-ink/70'}`}>
-                  {m.name}
-                </button>
-              ))}
+              {activeMembers.map(m => {
+                const selected = form.attendeeIds.includes(m.id)
+                const limit = form.maxAttendees ? parseInt(form.maxAttendees, 10) : null
+                const full = !selected && limit && form.attendeeIds.length >= limit
+                return (
+                  <button type="button" key={m.id} onClick={() => toggleAttendee(m.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                      selected ? 'bg-green text-white border-green' : full ? 'border-black/5 text-ink/25' : 'border-black/10 text-ink/70'
+                    }`}>
+                    {m.name}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

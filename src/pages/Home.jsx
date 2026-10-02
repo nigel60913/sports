@@ -76,7 +76,12 @@ export default function Home() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/60">
                   <span className="flex items-center gap-1"><Clock size={14} /> {s.startTime}–{s.endTime}</span>
                   {s.location && <span className="flex items-center gap-1"><MapPin size={14} /> {s.location}</span>}
-                  <span className="flex items-center gap-1"><UsersIcon size={14} /> {s.attendeeIds?.length || 0} 人 · 付款人 {memberName(s.payerId)}</span>
+                  <span className="flex items-center gap-1">
+                    <UsersIcon size={14} /> {s.attendeeIds?.length || 0}{s.maxAttendees ? `/${s.maxAttendees}` : ''} 人 · 付款人 {memberName(s.payerId)}
+                  </span>
+                  {s.maxAttendees && (s.attendeeIds?.length || 0) >= s.maxAttendees && (
+                    <span className="text-red-500 font-semibold">已額滿</span>
+                  )}
                   {s.date !== today && <SessionWeather session={s} weather={weather} isToday={false} />}
                 </div>
                 {s.date === today && <SessionWeather session={s} weather={weather} isToday={true} />}
